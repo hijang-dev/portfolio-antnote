@@ -1,0 +1,12 @@
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.pem
+
+# Node (each app also has its own .gitignore)
+node_modules/
+
+# local tooling state
+.omc/
+.playwright-mcp/

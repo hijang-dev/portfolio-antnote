@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: antnote-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-antnote}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-antnote}
+      POSTGRES_DB: ${DB_NAME:-antnote}
+    ports:
+      # Host port defaults to 5433 to avoid clashing with a local Postgres install.
+      - '${DB_PORT:-5433}:5432'
+    volumes:
+      - antnote-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-antnote}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  antnote-postgres-data:
