@@ -105,5 +105,105 @@ src/database/migrations/
 
 ### 다음 단계 (미구현)
 
-- 로그인 (`POST /auth/login`) 및 JWT 발급
-- 인증 가드 (`@UseGuards`)로 보호되는 엔드포인트
+- ~~로그인 (`POST /auth/login`) 및 JWT 발급~~ → 아래 "로그인" 섹션에서 구현
+- Refresh token / 로그아웃 (현재는 만료 시간이 짧은 access token만 발급)
+
+---
+
+## 로그인 (Login)
+
+`POST /auth/login` — 아이디/비밀번호로 인증하고 JWT access token을 발급합니다.
+발급된 토큰은 `Authorization: Bearer <token>` 헤더로 보호된 엔드포인트에 사용합니다.
+
+### 요청
+
+```json
+{
+  "username": "antnote_user",
+  "password": "antnote1234"
+}
+```
+
+### 응답
+
+**200 OK**
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+| 상태 코드 | 상황                                   |
+| --------- | ---------------------------------------- |
+| 200       | 로그인 성공                              |
+| 400       | 입력값 검증 실패 (아이디/비밀번호 누락)     |
+| 401       | 아이디 또는 비밀번호 불일치                |
+
+### 인증이 필요한 엔드포인트 예시: `GET /auth/me`
+
+발급받은 토큰으로 내 정보를 조회하는 엔드포인트입니다. 로그인이 실제로 유효한
+토큰을 발급하는지 확인하는 용도이자, 앞으로 인증이 필요한 다른 기능(관심종목,
+포트폴리오 등)이 따라야 할 보호 패턴의 예시입니다.
+
+```bash
+curl -H "Authorization: Bearer <accessToken>" http://localhost:3000/auth/me
+```
+
+| 상태 코드 | 상황                                       |
+| --------- | -------------------------------------------- |
+| 200       | 토큰의 사용자 정보 반환                        |
+| 401       | 토큰 없음 / 형식이 `Bearer <token>`이 아님 / 유효하지 않거나 만료됨 |
+
+### 구현 흐름
+
+```
+POST /auth/login
+  → ValidationPipe로 LoginDto 검증 (실패 시 400)
+  → AuthService.login
+      1. UsersService.findByUsername로 사용자 조회
+      2. bcrypt.compare로 비밀번호 확인
+         (아이디 없음 / 비밀번호 불일치 모두 동일한 401 메시지)
+      3. JwtService.signAsync로 { sub: user.id, username } 페이로드 서명
+      4. { accessToken } 반환
+
+GET /auth/me  (@UseGuards(AuthGuard) 적용)
+  → AuthGuard.canActivate
+      1. Authorization 헤더에서 Bearer 토큰 추출 (없으면 401)
+      2. JwtService.verifyAsync로 서명/만료 검증 (실패하면 401)
+      3. 검증된 payload를 request.user에 저장
+  → AuthController.me → AuthService.getCurrentUser(request.user.sub)
+      → UsersService.findById → UserResponseDto로 변환해 반환
+```
+
+### 구현 포인트
+
+| 포인트                                       | 설명 |
+| ---------------------------------------------- | ---- |
+| 아이디 없음/비밀번호 틀림을 같은 에러로 응답       | 둘을 구분해서 응답하면 공격자가 어떤 아이디가 실제로 존재하는지 순차적으로 알아낼 수 있습니다(사용자 열거 공격). |
+| 인증 가드는 전역이 아니라 라우트별 적용            | 현재는 `signup`/`health`/`/`처럼 공개 라우트가 대부분이라, 전역 가드 + `@Public()` 예외 처리보다 보호가 필요한 라우트에만 `@UseGuards(AuthGuard)`를 붙이는 쪽이 더 명확합니다. 보호 대상이 많아지면 전역 가드 방식으로 전환을 고려합니다. |
+| `AuthGuard`는 `src/common/guards/`에 위치        | 인증은 특정 도메인 모듈의 로직이 아니라 앱 전체에서 재사용되는 관심사이므로, 전역 예외 필터와 같은 위치(`common/`)에 둡니다. `JwtModule`을 `global: true`로 등록해 두어서 다른 모듈을 import하지 않고도 어디서든 주입받을 수 있습니다. |
+| access token만 발급, refresh token 없음          | 포트폴리오 범위에서는 만료 시간이 짧은(`JWT_EXPIRES_IN`, 기본 1시간) access token으로 충분하다고 판단했습니다. refresh token/로그아웃(토큰 무효화)은 다음 단계로 남겨둡니다. |
+
+### 관련 파일
+
+```
+src/modules/auth/
+  auth.controller.ts         # POST /auth/login, GET /auth/me
+  auth.service.ts             # validateCredentials, login, getCurrentUser
+  auth.service.spec.ts         # 유닛 테스트 (로그인 성공/실패, me 성공/실패)
+  dto/login.dto.ts
+  dto/login-response.dto.ts
+
+src/modules/users/
+  users.service.ts             # findById 추가
+
+src/common/guards/
+  auth.guard.ts                 # JWT 검증 가드 (재사용 가능)
+  auth.guard.spec.ts             # 유닛 테스트
+```
+
+### 다음 단계 (미구현)
+
+- Refresh token 발급 및 로그아웃(토큰 무효화)
+- 인증 가드를 사용하는 실제 기능 (관심종목, 포트폴리오 등)

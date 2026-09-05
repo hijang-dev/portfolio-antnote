@@ -9,6 +9,10 @@ export interface AppConfig {
     password?: string;
     name?: string;
   };
+  jwt: {
+    secret?: string;
+    expiresIn: string;
+  };
 }
 
 const configuration = (): AppConfig => ({
@@ -21,6 +25,10 @@ const configuration = (): AppConfig => ({
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     name: process.env.DB_NAME,
+  },
+  jwt: {
+    secret: process.env.JWT_SECRET,
+    expiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   },
 });
 

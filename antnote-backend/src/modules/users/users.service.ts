@@ -20,6 +20,10 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { username } });
   }
 
+  findById(id: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { id } });
+  }
+
   async create(input: CreateUserInput): Promise<User> {
     const user = this.usersRepository.create({
       username: input.username,
