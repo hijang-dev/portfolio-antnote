@@ -1,7 +1,7 @@
 # antnote-backend
 
 주식 투자 초보자를 위한 서비스 **antnote**의 API 서버입니다. NestJS, TypeORM,
-PostgreSQL로 구성했습니다.
+PostgreSQL, Redis(세션)로 구성했습니다.
 
 > 기본 세팅에 이어 회원가입/로그인 기능까지 구현했습니다. 나머지 기능
 > 모듈(stocks, watchlist, portfolio 등)은 `src/modules/` 아래에 하나씩
@@ -18,7 +18,7 @@ PostgreSQL로 구성했습니다.
 | 데이터베이스   | PostgreSQL                             |
 | 유효성 검증    | class-validator / class-transformer    |
 | 비밀번호 해싱  | bcrypt                                  |
-| 인증          | JWT (`@nestjs/jwt`)                     |
+| 인증          | 세션 (`express-session` + Redis, `connect-redis`) |
 | API 문서화     | Swagger (OpenAPI) — `@nestjs/swagger`  |
 | 테스트         | Vitest                                  |
 
@@ -36,20 +36,22 @@ src/
   health/                  # GET /health — DB 연결 확인용
   common/
     filters/                # 전역 예외 필터
-    guards/                  # JWT 인증 가드 (재사용 가능)
+    guards/                  # 세션 인증 가드 (재사용 가능)
+    session/                 # Redis 세션 스토어 설정 (express-session)
+    types/                   # express-session 타입 확장
   modules/
-    auth/                    # 회원가입, 로그인, /auth/me (구현됨)
+    auth/                    # 회원가입, 로그인/로그아웃, /auth/me (구현됨)
     users/                   # 사용자 조회/생성 (구현됨)
                               # 나머지 기능 모듈은 점진적으로 추가 예정
 ```
 
 ## 시작하기
 
-**사전 준비:** Node 22+, pnpm, Docker (로컬 PostgreSQL 실행용)
+**사전 준비:** Node 22+, pnpm, Docker (로컬 PostgreSQL/Redis 실행용)
 
 ```bash
-cp .env.example .env        # DB 접속 정보 입력
-docker compose up -d         # 로컬 PostgreSQL 실행
+cp .env.example .env        # DB/Redis 접속 정보 입력
+docker compose up -d         # 로컬 PostgreSQL + Redis 실행
 pnpm install
 pnpm migration:run            # 스키마 마이그레이션 적용
 pnpm start:dev

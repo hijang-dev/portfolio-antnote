@@ -1,5 +1,4 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,7 +14,6 @@ describe('AuthService', () => {
     findById: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
   };
-  let jwtService: { signAsync: ReturnType<typeof vi.fn> };
 
   const signUpDto: SignUpDto = {
     username: 'antnote_user',
@@ -37,15 +35,11 @@ describe('AuthService', () => {
       findById: vi.fn(),
       create: vi.fn(),
     };
-    jwtService = {
-      signAsync: vi.fn().mockResolvedValue('signed.jwt.token'),
-    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: UsersService, useValue: usersService },
-        { provide: JwtService, useValue: jwtService },
       ],
     }).compile();
 
@@ -94,7 +88,7 @@ describe('AuthService', () => {
       password: 'antnote1234',
     };
 
-    it('returns an access token when the password matches', async () => {
+    it('returns the user entity when the password matches', async () => {
       const passwordHash = await bcrypt.hash(loginDto.password, 4);
       usersService.findByUsername.mockResolvedValue({
         ...existingUser,
@@ -103,11 +97,8 @@ describe('AuthService', () => {
 
       const result = await authService.login(loginDto);
 
-      expect(result).toEqual({ accessToken: 'signed.jwt.token' });
-      expect(jwtService.signAsync).toHaveBeenCalledWith({
-        sub: existingUser.id,
-        username: existingUser.username,
-      });
+      expect(result.id).toBe(existingUser.id);
+      expect(result.username).toBe(existingUser.username);
     });
 
     it('rejects a wrong password with UnauthorizedException', async () => {

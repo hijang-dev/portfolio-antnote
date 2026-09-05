@@ -21,6 +21,9 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
+    // Backend auth is session-cookie based (Redis-backed) — without this,
+    // the browser won't send the session cookie cross-origin (3001 -> 3000).
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...init?.headers,

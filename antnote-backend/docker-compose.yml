@@ -18,5 +18,20 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: antnote-redis
+    restart: unless-stopped
+    # Session store only (express-session via connect-redis) — no
+    # persistence needed, sessions are disposable and re-created on login.
+    command: redis-server --save "" --appendonly no
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   antnote-postgres-data:

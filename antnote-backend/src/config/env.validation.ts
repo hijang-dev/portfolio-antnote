@@ -4,7 +4,9 @@ const REQUIRED_ENV_VARS = [
   'DB_USERNAME',
   'DB_PASSWORD',
   'DB_NAME',
-  'JWT_SECRET',
+  'REDIS_HOST',
+  'REDIS_PORT',
+  'SESSION_SECRET',
 ] as const;
 
 /**
