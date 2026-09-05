@@ -3,9 +3,9 @@
 주식 투자 초보자를 위한 서비스 **antnote**의 API 서버입니다. NestJS, TypeORM,
 PostgreSQL로 구성했습니다.
 
-> 아직 초기 세팅 단계입니다 — 이 문서는 프로젝트 뼈대(스켈레톤)를
-> 설명합니다. 기능 모듈(auth, stocks, watchlist, portfolio 등)은
-> `src/modules/` 아래에 하나씩 추가될 예정입니다.
+> 기본 세팅에 이어 회원가입 기능까지 구현했습니다. 나머지 기능 모듈(stocks,
+> watchlist, portfolio 등)은 `src/modules/` 아래에 하나씩 추가될 예정입니다.
+> API 명세와 설계 근거는 [`../docs/FEATURES.md`](../docs/FEATURES.md)를 참고하세요.
 
 ## 기술 스택
 
@@ -16,6 +16,7 @@ PostgreSQL로 구성했습니다.
 | ORM           | TypeORM                                |
 | 데이터베이스   | PostgreSQL                             |
 | 유효성 검증    | class-validator / class-transformer    |
+| 비밀번호 해싱  | bcrypt                                  |
 | API 문서화     | Swagger (OpenAPI) — `@nestjs/swagger`  |
 | 테스트         | Vitest                                  |
 
@@ -33,7 +34,10 @@ src/
   health/                  # GET /health — DB 연결 확인용
   common/
     filters/                # 전역 예외 필터
-  modules/                  # 기능 모듈 (점진적으로 추가 예정)
+  modules/
+    auth/                    # 회원가입 (구현됨)
+    users/                   # 사용자 조회/생성 (구현됨)
+                              # 나머지 기능 모듈은 점진적으로 추가 예정
 ```
 
 ## 시작하기
