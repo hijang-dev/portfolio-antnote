@@ -1,66 +1,64 @@
-# Architecture
+# 아키텍처
 
-## Overview
+## 전체 구조
 
 ```
 ┌─────────────────┐        HTTPS / JSON        ┌──────────────────┐        SQL        ┌──────────────┐
 │   antnote-web     │  ────────────────────────▶ │  antnote-backend   │ ─────────────────▶ │  PostgreSQL    │
-│   Next.js client   │ ◀──────────────────────── │  NestJS API server  │ ◀───────────────── │                │
+│   Next.js 클라이언트 │ ◀──────────────────────── │  NestJS API 서버     │ ◀───────────────── │                │
 └─────────────────┘                              └──────────────────┘                    └──────────────┘
-      Zustand                                      TypeORM (migrations,
-   (client/UI state)                                 no auto-sync)
+      Zustand                                      TypeORM (마이그레이션 사용,
+   (클라이언트/UI 상태)                                 자동 스키마 동기화 없음)
    TanStack Query
-  (server-state cache)
+  (서버 상태 캐시)
 ```
 
-- The web client never talks to PostgreSQL directly — all data access goes
-  through the NestJS API.
-- **Zustand** owns client-only UI state (toggles, wizard steps, drafts).
-  **TanStack Query** owns anything that came from the API, including its
-  cache, loading/error states, and refetching. This split keeps "did the
-  user click something" and "what does the server say" from tangling
-  together in one store.
-- Schema changes go through TypeORM migrations only — `synchronize` is
-  disabled in every environment, including local dev, so what runs in
-  production is exactly what was reviewed in a migration file.
+- 웹 클라이언트는 PostgreSQL과 절대 직접 통신하지 않습니다 — 모든 데이터
+  접근은 NestJS API를 거칩니다.
+- **Zustand**는 클라이언트 전용 UI 상태(토글, 마법사 단계, 임시 입력값 등)를
+  담당하고, **TanStack Query**는 API에서 온 데이터(캐시, 로딩/에러 상태,
+  재조회 등)를 담당합니다. 이렇게 역할을 나누면 "사용자가 무엇을 클릭했는가"와
+  "서버가 뭐라고 응답했는가"가 하나의 store 안에서 뒤섞이지 않습니다.
+- 스키마 변경은 오직 TypeORM 마이그레이션으로만 이루어집니다 — 로컬 개발
+  환경을 포함한 모든 환경에서 `synchronize`를 비활성화했습니다. 그 결과
+  운영 환경에 반영되는 스키마는 리뷰를 거친 마이그레이션 파일과 항상 동일합니다.
 
-## Backend Module Layout
+## 백엔드 모듈 구조
 
 ```
-config/      → env loading + fail-fast validation on boot
-database/    → TypeOrmModule wiring, CLI DataSource, migrations
-health/      → GET /health (DB connectivity probe for ALB/ECS/local docker)
-common/      → cross-cutting concerns (global exception filter, etc.)
-modules/     → feature modules (auth, stocks, watchlist, portfolio, ...)
+config/      → 환경변수 로딩 + 부팅 시 즉시 검증(fail-fast)
+database/    → TypeOrmModule 연결 설정, CLI용 DataSource, 마이그레이션
+health/      → GET /health (ALB/ECS/로컬 docker용 DB 연결 확인)
+common/      → 공통 관심사 (전역 예외 필터 등)
+modules/     → 기능 모듈 (auth, stocks, watchlist, portfolio 등)
 ```
 
-Each feature module is self-contained (controller, service, entities, DTOs),
-so features can be built and reviewed independently once the setup phase is
-done.
+각 기능 모듈은 컨트롤러/서비스/엔티티/DTO를 모두 갖춘 독립적인 단위로
+구성되어, 세팅 단계가 끝난 후에는 기능별로 따로 개발·리뷰할 수 있습니다.
 
-## Planned AWS Deployment
+## 예정된 AWS 배포 구조
 
-Not provisioned yet — this is the target shape once features are ready to
-ship, kept here so infra decisions aren't made ad hoc later.
+아직 실제로 구축하지는 않았습니다 — 기능 개발이 끝나고 배포할 시점에 인프라를
+즉흥적으로 결정하지 않도록, 목표로 하는 구조를 미리 정리해 둔 것입니다.
 
-| Component        | Service                                  |
-| ------------------ | ------------------------------------------ |
-| Web                | Amplify Hosting or S3 + CloudFront          |
-| API                 | ECS Fargate (containerized NestJS) behind an ALB |
-| Database            | RDS for PostgreSQL                          |
-| Migrations           | run as a one-off ECS task on deploy         |
-| Secrets              | AWS Secrets Manager → injected as env vars    |
-| CI/CD                | GitHub Actions → build image → push to ECR → deploy |
+| 구성 요소   | 서비스                                         |
+| ---------- | ----------------------------------------------- |
+| 웹          | Amplify Hosting 또는 S3 + CloudFront             |
+| API         | ECS Fargate (컨테이너화된 NestJS) + ALB           |
+| 데이터베이스  | RDS for PostgreSQL                               |
+| 마이그레이션  | 배포 시 일회성 ECS 태스크로 실행                    |
+| 시크릿 관리  | AWS Secrets Manager → 환경변수로 주입              |
+| CI/CD       | GitHub Actions → 이미지 빌드 → ECR 푸시 → 배포      |
 
-`GET /health` exists specifically so the ALB target group and ECS task
-definition have something real to probe (checks the DB connection, not just
-"process is alive").
+`GET /health`는 ALB 타깃 그룹과 ECS 태스크 정의가 확인할 실질적인 대상이
+필요해서 만든 엔드포인트입니다 (단순히 "프로세스가 살아있는가"가 아니라
+DB 연결 상태까지 확인합니다).
 
-## Key Decisions
+## 주요 설계 결정
 
-| Decision                                   | Why |
+| 결정                                       | 이유 |
 | -------------------------------------------- | ----- |
-| Migrations only, no `synchronize`             | Predictable, reviewable schema changes; safe in production |
-| Env validation on boot                         | Fail fast with a clear message instead of an opaque DB connection error |
-| Zustand + TanStack Query split                  | Avoids server data and UI state fighting over the same store |
-| NestJS over Express                              | Built-in DI/module structure scales better as feature modules are added |
+| 마이그레이션만 사용, `synchronize` 미사용       | 스키마 변경을 예측 가능하고 리뷰 가능하게 유지, 운영 환경에서 안전 |
+| 부팅 시 환경변수 검증                          | 애매한 DB 연결 오류 대신, 문제를 명확한 메시지로 즉시 확인 |
+| Zustand + TanStack Query 역할 분리              | 서버 데이터와 UI 상태가 하나의 store에서 충돌하는 것을 방지 |
+| Express 대신 NestJS 선택                        | 기본 내장된 DI/모듈 구조 덕분에 기능 모듈이 늘어나도 확장이 용이 |
