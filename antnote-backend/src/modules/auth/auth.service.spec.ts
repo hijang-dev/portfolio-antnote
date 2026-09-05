@@ -7,7 +7,10 @@ import type { SignUpDto } from './dto/sign-up.dto.js';
 
 describe('AuthService', () => {
   let authService: AuthService;
-  let usersService: { findByUsername: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+  let usersService: {
+    findByUsername: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+  };
 
   const signUpDto: SignUpDto = {
     username: 'antnote_user',
@@ -22,7 +25,10 @@ describe('AuthService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuthService, { provide: UsersService, useValue: usersService }],
+      providers: [
+        AuthService,
+        { provide: UsersService, useValue: usersService },
+      ],
     }).compile();
 
     authService = module.get(AuthService);
@@ -46,14 +52,21 @@ describe('AuthService', () => {
     expect(passwordHash).not.toBe(signUpDto.password);
     expect(passwordHash).toMatch(/^\$2[aby]\$/); // bcrypt hash format
 
-    expect(result).toMatchObject({ username: signUpDto.username, nickname: signUpDto.nickname });
-    expect((result as unknown as Record<string, unknown>).password).toBeUndefined();
+    expect(result).toMatchObject({
+      username: signUpDto.username,
+      nickname: signUpDto.nickname,
+    });
+    expect(
+      (result as unknown as Record<string, unknown>).password,
+    ).toBeUndefined();
   });
 
   it('rejects a duplicate username with ConflictException', async () => {
     usersService.findByUsername.mockResolvedValue({ id: 'existing' });
 
-    await expect(authService.signUp(signUpDto)).rejects.toBeInstanceOf(ConflictException);
+    await expect(authService.signUp(signUpDto)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
     expect(usersService.create).not.toHaveBeenCalled();
   });
 });

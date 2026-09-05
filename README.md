@@ -64,5 +64,6 @@ pnpm install && pnpm dev                                 # http://localhost:3001
 
 ## 문서
 
+- [코드 철학 및 품질 관리](./docs/CODE_PHILOSOPHY.md)
 - [아키텍처](./docs/ARCHITECTURE.md)
 - [기능 구현 가이드](./docs/FEATURES.md)

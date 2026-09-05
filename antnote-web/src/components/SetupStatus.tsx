@@ -1,20 +1,18 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { getHealth } from '@/lib/api/health';
+import { useHealthQuery } from '@/lib/api/hooks/useHealthQuery';
 import { useUiStore } from '@/store/useUiStore';
 
 /**
  * Not a real feature — just proves the setup (TanStack Query hitting the
  * NestJS API, Zustand for client state) is wired correctly end to end.
  * Safe to delete once real feature modules land.
+ *
+ * Data-fetching logic (query key, retry policy) lives in useHealthQuery,
+ * not here — this component only renders whatever the hook returns.
  */
 export function SetupStatus() {
-  const { data, isPending, isError } = useQuery({
-    queryKey: ['health'],
-    queryFn: getHealth,
-    retry: false,
-  });
+  const { data, isPending, isError } = useHealthQuery();
   const { sidebarOpen, toggleSidebar } = useUiStore();
 
   return (
@@ -27,7 +25,11 @@ export function SetupStatus() {
             unreachable (start antnote-backend)
           </span>
         )}
-        {data && <span className="text-green-600 dark:text-green-400">{data.status}</span>}
+        {data && (
+          <span className="text-green-600 dark:text-green-400">
+            {data.status}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

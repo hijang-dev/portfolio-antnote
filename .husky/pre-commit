@@ -1,0 +1,15 @@
+staged_in() {
+  git diff --cached --name-only --diff-filter=ACM | grep -q "^$1/"
+}
+
+if staged_in "antnote-backend"; then
+  echo "▶ antnote-backend: format & lint"
+  (cd antnote-backend && pnpm format && pnpm lint) || exit 1
+  git add antnote-backend
+fi
+
+if staged_in "antnote-web"; then
+  echo "▶ antnote-web: format & lint"
+  (cd antnote-web && pnpm format && pnpm lint) || exit 1
+  git add antnote-web
+fi

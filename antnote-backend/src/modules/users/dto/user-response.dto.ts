@@ -11,21 +11,21 @@ import { Expose } from 'class-transformer';
 export class UserResponseDto {
   @ApiProperty({ format: 'uuid' })
   @Expose()
-  id: string;
+  id!: string;
 
   @ApiProperty()
   @Expose()
-  username: string;
+  username!: string;
 
   @ApiProperty()
   @Expose()
-  nickname: string;
+  nickname!: string;
 
   @ApiProperty()
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty()
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 }

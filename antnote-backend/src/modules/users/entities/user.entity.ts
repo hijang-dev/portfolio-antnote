@@ -9,21 +9,21 @@ import {
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'varchar', length: 30, unique: true })
-  username: string;
+  username!: string;
 
   // bcrypt hash only — the plaintext password is never persisted.
   @Column({ type: 'varchar', length: 60 })
-  password: string;
+  password!: string;
 
   @Column({ type: 'varchar', length: 30 })
-  nickname: string;
+  nickname!: string;
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  updatedAt!: Date;
 }

@@ -1,0 +1,11 @@
+{
+  "name": "portfolio-antnote",
+  "private": true,
+  "description": "Repo-level tooling only (Git hooks). Each app (antnote-backend, antnote-web) manages its own dependencies and scripts.",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

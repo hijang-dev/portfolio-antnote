@@ -15,7 +15,10 @@ export class ApiError extends Error {
  * in one place means base URL, error shape, and JSON parsing only need to
  * be handled once.
  */
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
