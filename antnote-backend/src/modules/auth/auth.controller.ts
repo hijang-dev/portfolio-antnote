@@ -20,14 +20,12 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import type { Session as ExpressSession, SessionData } from 'express-session';
-import { AuthGuard } from '../../common/guards/auth.guard.js';
+import { CurrentUserId } from '../../common/decorators/current-user-id.decorator.js';
+import { AuthGuard, type AppSession } from '../../common/guards/auth.guard.js';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { SignUpDto } from './dto/sign-up.dto.js';
 import { UserResponseDto } from '../users/dto/user-response.dto.js';
-
-type AppSession = ExpressSession & Partial<SessionData>;
 
 @ApiTags('auth')
 @Controller('auth')
@@ -82,9 +80,7 @@ export class AuthController {
   @ApiOperation({ summary: '내 정보 조회 (로그인 필요)' })
   @ApiOkResponse({ type: UserResponseDto })
   @ApiUnauthorizedResponse({ description: '로그인되어 있지 않음' })
-  me(@Session() session: AppSession): Promise<UserResponseDto> {
-    // Non-null assertion is safe here: AuthGuard already rejected the
-    // request (401) if session.userId wasn't set.
-    return this.authService.getCurrentUser(session.userId!);
+  me(@CurrentUserId() userId: string): Promise<UserResponseDto> {
+    return this.authService.getCurrentUser(userId);
   }
 }

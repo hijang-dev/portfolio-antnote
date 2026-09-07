@@ -35,7 +35,7 @@ config/      → 환경변수 로딩 + 부팅 시 즉시 검증(fail-fast)
 database/    → TypeOrmModule 연결 설정, CLI용 DataSource, 마이그레이션
 health/      → GET /health (ALB/ECS/로컬 docker용 DB 연결 확인)
 common/      → 공통 관심사 (전역 예외 필터 등)
-modules/     → 기능 모듈 (auth, users 구현됨 / stocks, watchlist, portfolio 등 예정)
+modules/     → 기능 모듈 (auth, users, terms 구현됨 / stocks, watchlist, portfolio 등 예정)
 ```
 
 각 기능 모듈은 컨트롤러/서비스/엔티티/DTO를 모두 갖춘 독립적인 단위로

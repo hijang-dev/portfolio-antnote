@@ -250,5 +250,138 @@ src/common/types/
 
 ### 다음 단계 (미구현)
 
-- 인증 가드를 사용하는 실제 기능 (관심종목, 포트폴리오 등)
+- ~~인증 가드를 사용하는 실제 기능~~ → 아래 "주식 용어 사전" 섹션에서 구현
 - 동시 로그인 세션 목록 조회/개별 로그아웃 ("다른 기기에서 로그아웃")
+
+---
+
+## 주식 용어 사전 (Terms)
+
+로그인한 사용자가 낯선 투자 용어를 직접 입력·저장해두고 나중에 다시 찾아볼
+수 있는 개인 용어장입니다. 로그인 이후 인증 가드를 실제 기능에 적용한
+첫 사례이기도 합니다.
+
+모든 엔드포인트는 로그인이 필요하며(`@UseGuards(AuthGuard)`), 각 사용자는
+자기 자신이 등록한 용어만 조회·수정·삭제할 수 있습니다.
+
+### API 요약
+
+| 메서드   | 경로           | 설명                     |
+| -------- | -------------- | -------------------------- |
+| `POST`   | `/terms`       | 용어 등록                  |
+| `GET`    | `/terms`       | 내 용어 목록 (최신순)       |
+| `GET`    | `/terms/:id`   | 용어 상세 조회              |
+| `PATCH`  | `/terms/:id`   | 용어 수정 (부분 업데이트)    |
+| `DELETE` | `/terms/:id`   | 용어 삭제                   |
+
+### 요청/응답 예시
+
+**`POST /terms`**
+
+```json
+// 요청
+{
+  "term": "PER",
+  "definition": "주가를 주당순이익으로 나눈 값. 낮을수록 저평가된 것으로 볼 수 있다."
+}
+```
+
+```json
+// 201 응답 — 회원가입/로그인과 같은 방식으로 소유자(userId)는 응답에서 제외
+{
+  "id": "801b61c7-31fa-49da-a85d-356bd809979c",
+  "term": "PER",
+  "definition": "주가를 주당순이익으로 나눈 값. 낮을수록 저평가된 것으로 볼 수 있다.",
+  "createdAt": "2026-09-07T05:21:01.425Z",
+  "updatedAt": "2026-09-07T05:21:01.425Z"
+}
+```
+
+| 필드         | 규칙                          |
+| ------------ | ------------------------------ |
+| term         | 1~50자, 같은 사용자 내에서 중복 불가 |
+| definition   | 1~1000자                       |
+
+`PATCH /terms/:id`는 `term`, `definition` 둘 다 선택 항목(부분 업데이트)이고,
+나머지 응답 형태는 동일합니다.
+
+### 상태 코드
+
+| 상태 코드 | 상황                                                  |
+| --------- | ------------------------------------------------------ |
+| 200 / 201 | 성공 (조회/수정 200, 등록 201)                            |
+| 204       | 삭제 성공 (본문 없음)                                     |
+| 400       | 입력값 검증 실패                                          |
+| 401       | 로그인되어 있지 않음                                       |
+| 404       | 해당 id의 용어가 없거나, 존재해도 내 용어가 아님              |
+| 409       | 이미 등록한 용어 이름과 중복 (등록 시 / 이름 변경 시 모두)    |
+
+### terms 테이블
+
+| 컬럼         | 타입          | 설명                              |
+| ------------ | ------------- | ---------------------------------- |
+| id           | uuid (PK)     | 용어 식별자                         |
+| user_id      | uuid (FK)     | 소유자 (`users.id`, `ON DELETE CASCADE`) |
+| term         | varchar(50)   | 용어                                |
+| definition   | text          | 정의                                |
+| created_at   | timestamp     | 등록 시각                           |
+| updated_at   | timestamp     | 마지막 수정 시각                     |
+
+`(user_id, term)` 조합에 유니크 인덱스가 걸려 있어, DB 레벨에서도 같은
+사용자가 같은 용어를 두 번 등록할 수 없습니다.
+
+마이그레이션: [`1788758377269-CreateTermsTable.ts`](../antnote-backend/src/database/migrations/1788758377269-CreateTermsTable.ts)
+
+### 구현 흐름
+
+```
+POST /terms  (@UseGuards(AuthGuard))
+  → ValidationPipe로 CreateTermDto 검증 (실패 시 400)
+  → TermsService.create(userId, dto)
+      1. 같은 (userId, term) 조합이 이미 있는지 확인 (있으면 409)
+      2. 저장 후 TermResponseDto로 변환해 반환 (userId 필드 없음)
+
+GET /terms  (@UseGuards(AuthGuard))
+  → TermsService.findAll(userId) → userId로 필터링해 최신순 반환
+
+GET|PATCH|DELETE /terms/:id  (@UseGuards(AuthGuard))
+  → TermsService.findOwnedOrFail(userId, id)
+      - 없거나 다른 사용자 소유면 NotFoundException (403이 아니라 404)
+  → (PATCH의 경우) 이름을 바꾸는 것이면 중복 재확인 후 저장
+  → (DELETE의 경우) 소유 확인된 엔티티를 그대로 remove
+```
+
+### 구현 포인트
+
+| 포인트                                       | 설명 |
+| ---------------------------------------------- | ---- |
+| 로그인 세션에서만 소유자를 판단                    | 요청 본문/쿼리에 `userId`를 받지 않습니다 — `@CurrentUserId()`로 세션에서만 꺼내므로, 클라이언트가 다른 사용자의 id를 흉내 내 보낼 방법이 없습니다. |
+| 소유자가 아니면 403이 아니라 404                   | 회원가입/로그인 때 확립한 "존재 자체를 흘리지 않는다" 원칙을 그대로 적용했습니다 (`docs/FEATURES.md` 로그인 섹션의 사용자 열거 방지와 같은 이유). |
+| 중복 이름은 서비스 확인 + DB unique 인덱스 이중 방어 | username 중복 처리와 동일한 패턴입니다 — 서비스에서 먼저 확인해 명확한 409를 주고, `(user_id, term)` unique 인덱스가 최후 방어선입니다. |
+| `Term` 엔티티에 `@ManyToOne` 관계를 두지 않음        | `TermsService`는 사용자 엔티티를 조인하거나 탐색할 필요가 없어, FK 제약은 마이그레이션(스키마)에서만 걸고 애플리케이션 레벨에서는 `users` 모듈에 의존하지 않습니다. |
+| `@CurrentUserId()` 커스텀 데코레이터 도입             | `/auth/me`에서 세션을 직접 다루던 코드를 재사용 가능한 데코레이터로 뽑아, `terms`부터는 컨트롤러마다 `session.userId!`를 반복하지 않습니다. |
+
+### 관련 파일
+
+```
+src/modules/terms/
+  terms.module.ts
+  terms.controller.ts          # POST/GET/PATCH/DELETE /terms, /terms/:id
+  terms.service.ts              # 소유권 검증, 중복 검사, CRUD
+  terms.service.spec.ts          # 유닛 테스트 (CRUD, 소유권, 중복)
+  entities/term.entity.ts
+  dto/create-term.dto.ts
+  dto/update-term.dto.ts          # PartialType(CreateTermDto)
+  dto/term-response.dto.ts        # 응답 화이트리스트 (userId 제외)
+
+src/common/decorators/
+  current-user-id.decorator.ts     # 세션에서 로그인 사용자 id 추출 (재사용 가능)
+
+src/database/migrations/
+  1788758377269-CreateTermsTable.ts
+```
+
+### 다음 단계 (미구현)
+
+- 용어 검색/페이지네이션 (현재는 전체 목록 반환 — 개인 용어장이라 초기 규모에서는 충분)
+- 관심종목, 포트폴리오 등 나머지 기능 모듈

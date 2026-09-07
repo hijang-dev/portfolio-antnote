@@ -5,6 +5,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import type { Session, SessionData } from 'express-session';
+
+export type AppSession = Session & Partial<SessionData>;
 
 /**
  * Applied per-route with @UseGuards(AuthGuard), not globally — most routes
