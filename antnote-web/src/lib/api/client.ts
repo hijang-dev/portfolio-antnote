@@ -32,7 +32,15 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new ApiError(response.status, body?.message ?? response.statusText);
+    // ValidationPipe returns `message` as a string[] when multiple fields
+    // fail at once (e.g. signup) — join it so ApiError.message is always
+    // a single readable string instead of relying on Error's default
+    // array-to-string coercion (comma-joined, no spaces).
+    const rawMessage = body?.message as string | string[] | undefined;
+    const message = Array.isArray(rawMessage)
+      ? rawMessage.join(' ')
+      : (rawMessage ?? response.statusText);
+    throw new ApiError(response.status, message);
   }
 
   return response.json() as Promise<T>;

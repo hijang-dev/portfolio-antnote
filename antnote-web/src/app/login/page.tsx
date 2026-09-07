@@ -7,16 +7,11 @@ export default function LoginPage() {
       <h1 className="text-xl font-semibold">로그인</h1>
       <LoginForm />
       <p className="text-xs text-zinc-500">
-        계정이 없다면 <code className="font-mono">POST /auth/signup</code>{' '}
-        (Swagger:{' '}
-        <Link
-          href="http://localhost:3000/api/docs"
-          className="underline"
-          target="_blank"
-        >
-          /api/docs
+        계정이 없다면{' '}
+        <Link href="/signup" className="underline">
+          회원가입
         </Link>
-        )로 먼저 만들어주세요.
+        해주세요.
       </p>
     </div>
   );

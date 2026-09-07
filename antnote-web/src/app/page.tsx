@@ -21,8 +21,14 @@ export default function Home() {
 
         <div className="flex gap-3 text-sm font-medium">
           <Link
-            href="/login"
+            href="/signup"
             className="bg-foreground text-background rounded-full px-4 py-2"
+          >
+            회원가입
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-full border border-black/10 px-4 py-2 dark:border-white/15"
           >
             로그인
           </Link>

@@ -13,8 +13,21 @@ export interface LoginInput {
   password: string;
 }
 
+export interface SignUpInput {
+  username: string;
+  password: string;
+  nickname: string;
+}
+
 export function login(input: LoginInput): Promise<AuthUser> {
   return apiFetch<AuthUser>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function signUp(input: SignUpInput): Promise<AuthUser> {
+  return apiFetch<AuthUser>('/auth/signup', {
     method: 'POST',
     body: JSON.stringify(input),
   });
