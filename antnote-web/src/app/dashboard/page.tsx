@@ -1,29 +1,17 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { useCurrentUser } from '@/features/auth/hooks/useCurrentUser';
+import { useRequireAuth } from '@/features/auth/hooks/useRequireAuth';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogoutMutation';
 import { RandomTermCards } from '@/features/dashboard/components/RandomTermCards';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { data: user, isPending, isError } = useCurrentUser();
+  const { ready, user } = useRequireAuth();
   const logoutMutation = useLogoutMutation();
 
-  // /auth/me came back 401 — there's no session, so this page has
-  // nothing to show. Client-side redirect: the session lives in Redis,
-  // not in a decodable cookie, so there's no way to check it without a
-  // network call anyway (an Edge middleware guard couldn't do better).
-  useEffect(() => {
-    if (isError) {
-      router.replace('/login');
-    }
-  }, [isError, router]);
-
-  // `!user` covers the moment right after logout, between the cache being
-  // cleared and the redirect to /login actually landing.
-  if (isPending || isError || !user) {
+  if (!ready) {
     return null;
   }
 
@@ -45,13 +33,18 @@ export default function DashboardPage() {
               저장해둔 용어를 카드로 복습해보세요.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-full border border-black/10 px-3 py-1 text-xs hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.08]"
-          >
-            로그아웃
-          </button>
+          <div className="flex items-center gap-3">
+            <Link href="/terms" className="text-xs underline">
+              용어 관리
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-full border border-black/10 px-3 py-1 text-xs hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.08]"
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
 
         <RandomTermCards />

@@ -498,7 +498,7 @@ src/features/dashboard/
 
 ### 다음 단계 (미구현)
 
-- 용어 등록/수정/삭제 화면 (현재 프론트엔드에는 조회만 있고, CRUD는 API로만 가능)
+- ~~용어 등록/수정/삭제 화면~~ → "용어 등록/수정/삭제 화면 (프론트엔드)" 섹션에서 구현
 - ~~회원가입 화면~~ → 아래 "회원가입 (프론트엔드)" 섹션에서 구현
 
 ---
@@ -555,3 +555,85 @@ src/features/auth/components/
 
 src/lib/api/client.ts              # 배열 검증 메시지를 하나의 문자열로 정규화
 ```
+
+---
+
+## 용어 등록/수정/삭제 화면 (프론트엔드)
+
+`/terms`에서 용어를 등록·수정·삭제합니다. 지금까지 프론트엔드에는 대시보드
+(조회 전용)만 있었는데, 이제 API로만 가능했던 나머지 CRUD를 화면에서 직접
+할 수 있습니다.
+
+### 화면 구성
+
+| 경로       | 설명                                                    |
+| ---------- | --------------------------------------------------------- |
+| `/terms`   | 등록 폼 + 전체 목록. 목록의 각 항목에서 바로 수정/삭제      |
+
+수정은 별도 페이지 없이, 목록 항목을 인라인으로 폼으로 바꿔서 처리합니다
+(클릭 → 그 자리에서 수정 → 저장/취소).
+
+### 데이터 흐름
+
+```
+useTermsQuery            (queryKey: ['terms', 'list'])       → GET /terms
+useCreateTermMutation                                         → POST /terms
+useUpdateTermMutation                                          → PATCH /terms/:id
+useDeleteTermMutation                                           → DELETE /terms/:id
+
+세 뮤테이션 모두 onSuccess에서
+  queryClient.invalidateQueries({ queryKey: ['terms'] })
+을 호출합니다. 쿼리 키가 'terms'로 시작하는 모든 쿼리
+(['terms','list'], ['terms','random',10] 등)가 한 번에 무효화되어,
+용어를 등록/수정/삭제하면 이 화면과 대시보드 카드가 둘 다 다음에 볼 때
+최신 상태로 갱신됩니다. (대시보드의 `staleTime: Infinity`는 "화면에 떠
+있는 동안 제멋대로 재조회되지 않는다"는 의미일 뿐, invalidate로 인한
+갱신 자체를 막지는 않습니다.)
+```
+
+### 구현 중 발견하고 고친 버그 두 가지
+
+이번에도 build/lint만으로는 안 잡히는 문제들이라, 실제 브라우저로
+확인하다가 발견했습니다.
+
+| 버그 | 원인 | 수정 |
+| ---- | ---- | ---- |
+| 수정 폼을 열면 라벨이 "용어 용어"처럼 겹쳐 보임 | `TermForm`이 등록 폼 + 수정 중인 항목마다 반복 렌더링되는데, `<label htmlFor="term">`/`<input id="term">`을 문자열로 하드코딩해서 같은 페이지에 `id="term"`이 여러 번 존재 — 브라우저가 라벨을 엉뚱한 입력칸에 연결 | `useId()`로 컴포넌트 인스턴스마다 고유한 id를 생성하도록 변경 |
+| 용어 삭제 시 크래시 위험 | `DELETE /terms/:id`는 204(본문 없음)를 반환하는데, `apiFetch`가 무조건 `response.json()`을 호출해 빈 본문에서 `SyntaxError`가 날 수 있었음 (마침 응답이 완전히 비어 있어 이번엔 콘솔에 드러나지 않았지만 재현 가능한 결함이었음) | `response.status === 204`면 `.json()`을 호출하지 않고 바로 반환하도록 `src/lib/api/client.ts`에 분기 추가 |
+
+### 구현 포인트
+
+| 포인트                                       | 설명 |
+| ---------------------------------------------- | ---- |
+| 등록/수정 폼을 하나의 컴포넌트로 공유              | `TermForm`이 `initialTerm`/`initialDefinition`, `onSubmit`, `onCancel` 등을 props로 받아 등록과 인라인 수정 양쪽에 재사용됩니다. 필드, 검증 힌트, 에러 표시를 두 곳에서 따로 관리하지 않습니다. |
+| 등록 폼은 `key`를 바꿔 리마운트해서 초기화          | `TermForm`은 필드 상태를 내부에서 관리하므로, 등록 성공 후 입력값을 지우려면 부모(`CreateTermForm`)가 `key`를 바꿔 리마운트시킵니다 — `useState`를 부모로 끌어올리는 대신 폼의 자기완결성을 유지하는 쪽을 택했습니다. |
+| 삭제는 `window.confirm`으로 충분                  | 커스텀 모달을 새로 만들 만큼 중요한 흐름은 아니라고 판단했습니다. 실수로 지우는 것만 막으면 되는 파괴적 액션이라 브라우저 기본 confirm으로 충분합니다. |
+| 뮤테이션 성공 시 쿼리 무효화만, 낙관적 업데이트는 안 함 | 개인 용어장 규모(사용자당 데이터가 많지 않음)에서는 재조회 왕복이 체감상 문제되지 않아서, 낙관적 업데이트의 복잡도(롤백 처리 등)를 감수할 이유가 없었습니다. |
+
+### 관련 파일
+
+```
+src/app/terms/page.tsx
+
+src/features/terms/
+  api.ts                            # Term 타입(대시보드도 여기서 import), CRUD 함수
+  hooks/
+    useTermsQuery.ts
+    useCreateTermMutation.ts
+    useUpdateTermMutation.ts
+    useDeleteTermMutation.ts
+  components/
+    TermForm.tsx                     # 등록/수정 공용 폼
+    CreateTermForm.tsx                 # 등록 폼 + 성공 시 리마운트로 초기화
+    TermListItem.tsx                   # 조회/인라인 수정/삭제 토글
+    TermsList.tsx                       # 로딩/에러/빈 상태
+
+src/features/auth/hooks/
+  useRequireAuth.ts                  # 대시보드와 공유하는 로그인 가드 훅 (2번째 사용처에서 추출)
+
+src/lib/api/client.ts                # 204 No Content 처리 추가
+```
+
+### 다음 단계 (미구현)
+
+- 관심종목, 포트폴리오 등 나머지 기능 모듈

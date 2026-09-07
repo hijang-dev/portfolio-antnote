@@ -1,4 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+const HTTP_NO_CONTENT = 204;
 
 export class ApiError extends Error {
   constructor(
@@ -41,6 +42,12 @@ export async function apiFetch<T>(
       ? rawMessage.join(' ')
       : (rawMessage ?? response.statusText);
     throw new ApiError(response.status, message);
+  }
+
+  // DELETE endpoints return 204 with an empty body — response.json()
+  // throws ("Unexpected end of JSON input") if called on that.
+  if (response.status === HTTP_NO_CONTENT) {
+    return undefined as T;
   }
 
   return response.json() as Promise<T>;
