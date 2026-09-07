@@ -13,6 +13,13 @@ describe('TermsService', () => {
     create: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
+    createQueryBuilder: ReturnType<typeof vi.fn>;
+  };
+  let queryBuilder: {
+    where: ReturnType<typeof vi.fn>;
+    orderBy: ReturnType<typeof vi.fn>;
+    limit: ReturnType<typeof vi.fn>;
+    getMany: ReturnType<typeof vi.fn>;
   };
 
   const userId = 'owner-1';
@@ -28,12 +35,19 @@ describe('TermsService', () => {
   };
 
   beforeEach(async () => {
+    queryBuilder = {
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      getMany: vi.fn(),
+    };
     repo = {
       findOne: vi.fn(),
       find: vi.fn(),
       create: vi.fn((input) => input),
       save: vi.fn(async (input) => input),
       remove: vi.fn(async (input) => input),
+      createQueryBuilder: vi.fn(() => queryBuilder),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -87,6 +101,33 @@ describe('TermsService', () => {
       expect(
         (result[0] as unknown as Record<string, unknown>).userId,
       ).toBeUndefined();
+    });
+  });
+
+  describe('findRandom', () => {
+    it("queries only the given user's terms, ordered randomly, capped at limit", async () => {
+      queryBuilder.getMany.mockResolvedValue([existingTerm]);
+
+      const result = await service.findRandom(userId, 10);
+
+      expect(repo.createQueryBuilder).toHaveBeenCalledWith('term');
+      expect(queryBuilder.where).toHaveBeenCalledWith('term.userId = :userId', {
+        userId,
+      });
+      expect(queryBuilder.orderBy).toHaveBeenCalledWith('RANDOM()');
+      expect(queryBuilder.limit).toHaveBeenCalledWith(10);
+      expect(result).toHaveLength(1);
+      expect(
+        (result[0] as unknown as Record<string, unknown>).userId,
+      ).toBeUndefined();
+    });
+
+    it('returns an empty array when the user has no terms yet', async () => {
+      queryBuilder.getMany.mockResolvedValue([]);
+
+      const result = await service.findRandom(userId, 10);
+
+      expect(result).toEqual([]);
     });
   });
 

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { SetupStatus } from '@/components/SetupStatus';
 
 export default function Home() {
@@ -16,6 +17,21 @@ export default function Home() {
             </code>
             .
           </p>
+        </div>
+
+        <div className="flex gap-3 text-sm font-medium">
+          <Link
+            href="/login"
+            className="bg-foreground text-background rounded-full px-4 py-2"
+          >
+            로그인
+          </Link>
+          <Link
+            href="/dashboard"
+            className="rounded-full border border-black/10 px-4 py-2 dark:border-white/15"
+          >
+            대시보드
+          </Link>
         </div>
 
         <SetupStatus />

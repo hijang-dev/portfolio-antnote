@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -25,6 +26,7 @@ import {
 import { CurrentUserId } from '../../common/decorators/current-user-id.decorator.js';
 import { AuthGuard } from '../../common/guards/auth.guard.js';
 import { CreateTermDto } from './dto/create-term.dto.js';
+import { RandomTermsQueryDto } from './dto/random-terms-query.dto.js';
 import { TermResponseDto } from './dto/term-response.dto.js';
 import { UpdateTermDto } from './dto/update-term.dto.js';
 import { TermsService } from './terms.service.js';
@@ -55,6 +57,16 @@ export class TermsController {
   @ApiOkResponse({ type: TermResponseDto, isArray: true })
   findAll(@CurrentUserId() userId: string): Promise<TermResponseDto[]> {
     return this.termsService.findAll(userId);
+  }
+
+  @Get('random')
+  @ApiOperation({ summary: '대시보드 복습용 랜덤 용어 카드' })
+  @ApiOkResponse({ type: TermResponseDto, isArray: true })
+  findRandom(
+    @CurrentUserId() userId: string,
+    @Query() query: RandomTermsQueryDto,
+  ): Promise<TermResponseDto[]> {
+    return this.termsService.findRandom(userId, query.limit);
   }
 
   @Get(':id')

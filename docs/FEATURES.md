@@ -268,11 +268,17 @@ src/common/types/
 
 | 메서드   | 경로           | 설명                     |
 | -------- | -------------- | -------------------------- |
-| `POST`   | `/terms`       | 용어 등록                  |
-| `GET`    | `/terms`       | 내 용어 목록 (최신순)       |
-| `GET`    | `/terms/:id`   | 용어 상세 조회              |
-| `PATCH`  | `/terms/:id`   | 용어 수정 (부분 업데이트)    |
-| `DELETE` | `/terms/:id`   | 용어 삭제                   |
+| `POST`   | `/terms`         | 용어 등록                        |
+| `GET`    | `/terms`         | 내 용어 목록 (최신순)             |
+| `GET`    | `/terms/random`  | 랜덤 용어 카드 (대시보드용)         |
+| `GET`    | `/terms/:id`     | 용어 상세 조회                    |
+| `PATCH`  | `/terms/:id`     | 용어 수정 (부분 업데이트)           |
+| `DELETE` | `/terms/:id`     | 용어 삭제                         |
+
+> `random`이 `:id`보다 라우트 등록 순서상 먼저 와야 합니다 — 그렇지 않으면
+> `GET /terms/random`이 `GET /terms/:id`에 `id="random"`으로 매칭되어
+> 버려집니다. `TermsController`에서 `findRandom` 메서드를 `findOne`보다
+> 앞에 선언해 둔 이유입니다.
 
 ### 요청/응답 예시
 
@@ -304,6 +310,12 @@ src/common/types/
 
 `PATCH /terms/:id`는 `term`, `definition` 둘 다 선택 항목(부분 업데이트)이고,
 나머지 응답 형태는 동일합니다.
+
+**`GET /terms/random?limit=10`**
+
+`limit`은 선택값(기본 10, 1~50)이며, 응답은 `TermResponseDto` 배열입니다.
+호출할 때마다 무작위로 다시 뽑히고, 등록된 용어가 `limit`보다 적으면 있는
+만큼만 반환합니다 (0개면 빈 배열).
 
 ### 상태 코드
 
@@ -344,6 +356,11 @@ POST /terms  (@UseGuards(AuthGuard))
 GET /terms  (@UseGuards(AuthGuard))
   → TermsService.findAll(userId) → userId로 필터링해 최신순 반환
 
+GET /terms/random  (@UseGuards(AuthGuard))
+  → ValidationPipe로 RandomTermsQueryDto 검증 (limit 범위 벗어나면 400)
+  → TermsService.findRandom(userId, limit)
+      → QueryBuilder로 ORDER BY RANDOM() LIMIT :limit, userId로 필터링
+
 GET|PATCH|DELETE /terms/:id  (@UseGuards(AuthGuard))
   → TermsService.findOwnedOrFail(userId, id)
       - 없거나 다른 사용자 소유면 NotFoundException (403이 아니라 404)
@@ -360,6 +377,8 @@ GET|PATCH|DELETE /terms/:id  (@UseGuards(AuthGuard))
 | 중복 이름은 서비스 확인 + DB unique 인덱스 이중 방어 | username 중복 처리와 동일한 패턴입니다 — 서비스에서 먼저 확인해 명확한 409를 주고, `(user_id, term)` unique 인덱스가 최후 방어선입니다. |
 | `Term` 엔티티에 `@ManyToOne` 관계를 두지 않음        | `TermsService`는 사용자 엔티티를 조인하거나 탐색할 필요가 없어, FK 제약은 마이그레이션(스키마)에서만 걸고 애플리케이션 레벨에서는 `users` 모듈에 의존하지 않습니다. |
 | `@CurrentUserId()` 커스텀 데코레이터 도입             | `/auth/me`에서 세션을 직접 다루던 코드를 재사용 가능한 데코레이터로 뽑아, `terms`부터는 컨트롤러마다 `session.userId!`를 반복하지 않습니다. |
+| `ORDER BY RANDOM()`은 개인 용어장 규모에서만 의도적으로 사용 | 사용자당 데이터가 수십~수백 건 수준일 때만 저렴합니다. 테이블이 커지면 `TABLESAMPLE`이나 애플리케이션 레벨 샘플링으로 바꿔야 한다는 걸 인지하고 쓴 선택입니다. |
+| `random` 라우트를 `:id` 라우트보다 먼저 선언              | 위 API 요약의 라우트 순서 설명 참고 — 흔한 실수라 의도적으로 순서를 맞췄습니다. |
 
 ### 관련 파일
 
@@ -373,6 +392,7 @@ src/modules/terms/
   dto/create-term.dto.ts
   dto/update-term.dto.ts          # PartialType(CreateTermDto)
   dto/term-response.dto.ts        # 응답 화이트리스트 (userId 제외)
+  dto/random-terms-query.dto.ts    # ?limit= 검증 (1~50, 기본 10)
 
 src/common/decorators/
   current-user-id.decorator.ts     # 세션에서 로그인 사용자 id 추출 (재사용 가능)
@@ -383,5 +403,100 @@ src/database/migrations/
 
 ### 다음 단계 (미구현)
 
+- ~~대시보드에서 랜덤 카드로 복습~~ → 아래 "메인 대시보드 (프론트엔드)" 섹션에서 구현
 - 용어 검색/페이지네이션 (현재는 전체 목록 반환 — 개인 용어장이라 초기 규모에서는 충분)
 - 관심종목, 포트폴리오 등 나머지 기능 모듈
+
+---
+
+## 메인 대시보드 (프론트엔드)
+
+로그인한 사용자가 처음 보는 화면입니다. 저장해둔 용어 중 무작위로 뽑은
+카드를 보여줘서 복습을 유도합니다 — `GET /terms/random`을 그대로 소비하는
+첫 프론트엔드 기능이자, 세션 인증이 실제 화면 단위에서 어떻게 동작하는지
+보여주는 첫 사례이기도 합니다.
+
+### 화면 구성
+
+| 경로          | 설명                                              |
+| ------------- | -------------------------------------------------- |
+| `/login`      | 아이디/비밀번호 로그인 폼                              |
+| `/dashboard`  | 로그인 사용자 전용 — 랜덤 용어 카드 10장, 로그아웃       |
+
+### 인증 상태를 다루는 방식
+
+세션 쿠키(`antnote.sid`)는 `httpOnly`라 JS에서 직접 읽을 수 없고, 세션의
+실제 내용은 브라우저가 아니라 서버(Redis)에 있습니다. 그래서 "로그인
+되어있는가"는 오직 `GET /auth/me` 요청의 성공/실패로만 판단할 수 있습니다.
+
+```
+useCurrentUser()  (TanStack Query, queryKey: ['auth', 'me'])
+  → GET /auth/me
+      성공 → 로그인 상태, user 반환
+      401  → 비로그인 상태
+
+DashboardPage
+  → useCurrentUser()가 401이면 useEffect에서 router.replace('/login')
+  → 그 사이(로딩 중 / 리다이렉트 대기 중)에는 아무것도 렌더링하지 않음
+```
+
+Next.js 미들웨어(Edge)로 라우트를 막는 방법도 있지만, 세션 데이터가
+Redis에 있어서 미들웨어에서도 결국 백엔드에 물어봐야 하는 건 동일합니다.
+지금 규모에서는 클라이언트 컴포넌트에서 처리하는 쪽이 더 단순합니다.
+
+### 로그인 → 대시보드 흐름
+
+```
+LoginForm 제출
+  → useLoginMutation → POST /auth/login (성공 시 Set-Cookie로 세션 발급)
+  → onSuccess: queryClient.setQueryData(['auth','me'], user)  // 재조회 없이 캐시에 바로 반영
+  → router.push('/dashboard')
+
+DashboardPage
+  → useCurrentUser()로 인사말에 쓸 닉네임 확보
+  → RandomTermCards → useRandomTermsQuery(10) → GET /terms/random?limit=10
+  → "다시 섞기" 버튼 → refetch() → 새로운 무작위 세트
+
+TermCard
+  → 클릭 전: 용어만 노출 ("눌러서 정의 보기")
+  → 클릭 후: 정의 노출 (플래시카드 방식 — 복기 목적에 맞게 바로 다 보여주지 않음)
+```
+
+### 구현 포인트
+
+| 포인트                                             | 설명 |
+| ----------------------------------------------------- | ---- |
+| 카드 클릭으로 정의를 가렸다가 보여주는 방식               | "복기하기 좋게"라는 요구를 그대로 텍스트만 나열하는 대신, 실제로 기억을 테스트하는 플래시카드 UX로 구현했습니다. |
+| `staleTime: Infinity`로 자동 재조회 방지                 | 재조회(새 무작위 세트)는 "다시 섞기" 버튼을 눌렀을 때만 일어나야 합니다 — 화면 포커스 전환 등으로 TanStack Query가 자동으로 다시 불러와 카드가 제멋대로 바뀌는 걸 막습니다. |
+| 로그아웃 시 캐시는 `null`이 아니라 `removeQueries`로 제거   | `setQueryData(['auth','me'], null)`을 썼다가 로그아웃 직후 리다이렉트 되기 전 짧은 순간 `user.nickname`에서 `TypeError`가 나는 걸 Playwright로 직접 확인하고 고쳤습니다. `null`은 `AuthUser` 타입이 아닌데도 컴파일 에러가 나지 않았던 이유는, 캐시 키가 문자열 배열이라 `useCurrentUser`가 기대하는 타입과 `setQueryData` 호출이 타입 레벨에서 연결되어 있지 않기 때문입니다. `removeQueries`로 캐시를 비우면 다시 `isPending` 상태로 돌아가 기존 로딩 처리 로직을 그대로 탑니다. |
+| 그럼에도 `!user` 방어 코드를 남겨둠                        | 위 수정과 별개로, `DashboardPage`는 `isPending`/`isError`뿐 아니라 `!user`까지 확인합니다 — 캐시를 어떻게 다루든 이 화면만은 항상 안전하게 만들기 위한 이중 방어입니다. |
+
+### 관련 파일
+
+```
+src/app/
+  login/page.tsx
+  dashboard/page.tsx
+
+src/features/auth/
+  api.ts                          # login, getCurrentUser, logout
+  hooks/
+    useCurrentUser.ts               # GET /auth/me
+    useLoginMutation.ts
+    useLogoutMutation.ts
+  components/
+    LoginForm.tsx
+
+src/features/dashboard/
+  api.ts                          # getRandomTerms
+  hooks/
+    useRandomTermsQuery.ts
+  components/
+    TermCard.tsx                    # 클릭 시 정의 토글
+    RandomTermCards.tsx              # 로딩/에러/빈 상태 + "다시 섞기"
+```
+
+### 다음 단계 (미구현)
+
+- 용어 등록/수정/삭제 화면 (현재 프론트엔드에는 조회만 있고, CRUD는 API로만 가능)
+- 회원가입 화면 (현재는 Swagger로만 계정 생성 가능)

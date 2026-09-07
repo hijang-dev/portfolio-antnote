@@ -3,9 +3,10 @@
 주식 투자 초보자를 위한 서비스 **antnote**의 웹 클라이언트입니다. Next.js
 (App Router), Zustand, TanStack Query로 구성했습니다.
 
-> 아직 초기 세팅 단계입니다 — 이 문서는 프로젝트 뼈대(스켈레톤)를
-> 설명합니다. 기능 화면(auth, stocks, watchlist, portfolio 등)은
-> `src/features/` 아래에 하나씩 추가될 예정입니다.
+> 로그인 화면과 메인 대시보드(랜덤 용어 카드)까지 구현했습니다. 나머지
+> 기능 화면(용어 등록/수정 UI, 관심종목, 포트폴리오 등)은 `src/features/`
+> 아래에 하나씩 추가될 예정입니다. 화면별 설계 근거는
+> [`../docs/FEATURES.md`](../docs/FEATURES.md)를 참고하세요.
 
 ## 기술 스택
 
@@ -25,12 +26,18 @@ src/
     layout.tsx        # 루트 레이아웃, Providers로 감싸기
     providers.tsx      # QueryClientProvider 설정
     page.tsx            # 홈 페이지
+    login/page.tsx        # 로그인 화면 (구현됨)
+    dashboard/page.tsx     # 메인 대시보드 — 랜덤 용어 카드 (구현됨)
   components/           # 여러 기능에서 공통으로 쓰는 UI 컴포넌트
-  features/              # 기능 모듈 (점진적으로 추가 예정)
+  features/
+    auth/                 # 로그인/로그아웃/현재 사용자 조회 (구현됨)
+    dashboard/             # 랜덤 용어 카드 조회 (구현됨)
+                           # 나머지 기능 모듈은 점진적으로 추가 예정
   lib/
     api/
-      client.ts          # fetch 래퍼 (base URL, 에러 형식)
+      client.ts          # fetch 래퍼 (base URL, 세션 쿠키, 에러 형식)
       health.ts           # 예시 쿼리 함수
+      hooks/useHealthQuery.ts
     query/
       get-query-client.ts # SSR에 안전한 QueryClient 생성 함수
   store/
@@ -51,6 +58,11 @@ pnpm dev
 비워둡니다). 홈 화면에서 TanStack Query로 백엔드의 `/health`를 호출하고
 Zustand 스토어 값을 토글해 보면서, 전체 세팅이 제대로 연결되어 있는지
 확인할 수 있습니다.
+
+로그인/대시보드를 실제로 써보려면 계정이 필요한데, 아직 회원가입 화면이
+없어서 백엔드 Swagger(`http://localhost:3000/api/docs`)의
+`POST /auth/signup`으로 먼저 계정을 만들어야 합니다. `/login`에서
+로그인하면 `/dashboard`로 이동합니다.
 
 ## 상태 관리 원칙
 

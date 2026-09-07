@@ -46,6 +46,22 @@ export class TermsService {
     return this.toResponse(await this.findOwnedOrFail(userId, id));
   }
 
+  /**
+   * For the dashboard's "review" cards. ORDER BY RANDOM() is a full-table
+   * shuffle, which only stays cheap at personal-glossary scale (dozens to
+   * low hundreds of rows per user) — fine for what this is, but not a
+   * pattern to reuse for a table with many rows per user.
+   */
+  async findRandom(userId: string, limit: number): Promise<TermResponseDto[]> {
+    const terms = await this.termsRepository
+      .createQueryBuilder('term')
+      .where('term.userId = :userId', { userId })
+      .orderBy('RANDOM()')
+      .limit(limit)
+      .getMany();
+    return terms.map((term) => this.toResponse(term));
+  }
+
   async update(
     userId: string,
     id: string,
