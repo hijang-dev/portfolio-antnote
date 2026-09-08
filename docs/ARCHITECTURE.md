@@ -43,6 +43,22 @@ modules/     → 기능 모듈 (auth, users, terms, trade-journals 구현됨 / s
 구현된 기능의 API 명세와 설계 근거는 [기능 구현 가이드](./FEATURES.md)에
 정리되어 있습니다.
 
+## 프론트엔드 구조
+
+```
+app/         → 페이지 라우팅 (로그인, 회원가입, 대시보드, 용어, 매매일지)
+components/  → 여러 기능이 공유하는 UI (RichTextEditor, RichTextView 등)
+features/    → 기능 모듈 (auth, dashboard, terms, journal 구현됨 / stocks, watchlist, portfolio 등 예정)
+lib/         → API 클라이언트(fetch 래퍼), TanStack Query 설정
+store/       → Zustand 스토어
+```
+
+백엔드와 같은 원칙을 따릅니다 — 각 기능 모듈은 `api.ts`/`hooks/`/
+`components/`로 도메인별 응집되어 있고, 여러 기능에서 반복되는 로직(로그인
+가드 훅, 리치 텍스트 에디터 등)은 두 번째 사용처가 생기는 시점에
+`components/`나 공용 훅으로 추출합니다. 화면별 설계 근거는 마찬가지로
+[기능 구현 가이드](./FEATURES.md)에 정리되어 있습니다.
+
 ## 예정된 AWS 배포 구조
 
 아직 실제로 구축하지는 않았습니다 — 기능 개발이 끝나고 배포할 시점에 인프라를
@@ -53,6 +69,7 @@ modules/     → 기능 모듈 (auth, users, terms, trade-journals 구현됨 / s
 | 웹           | Amplify Hosting 또는 S3 + CloudFront           |
 | API          | ECS Fargate (컨테이너화된 NestJS) + ALB        |
 | 데이터베이스 | RDS for PostgreSQL                             |
+| 세션 저장소  | ElastiCache for Redis                          |
 | 마이그레이션 | 배포 시 일회성 ECS 태스크로 실행               |
 | 시크릿 관리  | AWS Secrets Manager → 환경변수로 주입          |
 | CI/CD        | GitHub Actions → 이미지 빌드 → ECR 푸시 → 배포 |
