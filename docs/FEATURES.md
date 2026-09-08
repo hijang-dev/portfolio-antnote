@@ -414,14 +414,17 @@ src/database/migrations/
 로그인한 사용자가 처음 보는 화면입니다. 저장해둔 용어 중 무작위로 뽑은
 카드를 보여줘서 복습을 유도합니다 — `GET /terms/random`을 그대로 소비하는
 첫 프론트엔드 기능이자, 세션 인증이 실제 화면 단위에서 어떻게 동작하는지
-보여주는 첫 사례이기도 합니다.
+보여주는 첫 사례이기도 합니다. 이후 매매일지 기능이 추가되면서, 카드
+아래에 "복기가 필요한 매매일지" 위젯도 함께 보여줍니다 (`GET
+/trade-journals/pending-review` 소비 — 자세한 내용은 "매매일지" 섹션
+참고).
 
 ### 화면 구성
 
 | 경로          | 설명                                              |
 | ------------- | -------------------------------------------------- |
 | `/login`      | 아이디/비밀번호 로그인 폼                              |
-| `/dashboard`  | 로그인 사용자 전용 — 랜덤 용어 카드 10장, 로그아웃       |
+| `/dashboard`  | 로그인 사용자 전용 — 랜덤 용어 카드 10장 + 복기 필요 매매일지 5개, 로그아웃 |
 
 ### 인증 상태를 다루는 방식
 
@@ -632,6 +635,168 @@ src/features/auth/hooks/
   useRequireAuth.ts                  # 대시보드와 공유하는 로그인 가드 훅 (2번째 사용처에서 추출)
 
 src/lib/api/client.ts                # 204 No Content 처리 추가
+```
+
+### 다음 단계 (미구현)
+
+- ~~관심종목, 포트폴리오~~ → 매매일지가 먼저 구현됨 (아래 섹션)
+
+---
+
+## 매매일지 (Trade Journal)
+
+로그인한 사용자가 자신의 매매를 기록하는 기능입니다. 제목/매매종목/매매근거로
+작성하고, 매매복기는 나중에 (혹은 바로) 작성할 수 있습니다. 매매근거와
+매매복기는 리치 텍스트 에디터(Tiptap)로 작성합니다.
+
+모든 엔드포인트는 로그인이 필요하며, 각 사용자는 자신이 작성한 매매일지만
+조회·수정·삭제할 수 있습니다 (terms와 동일한 소유권 검증 패턴).
+
+### API 요약
+
+| 메서드   | 경로                              | 설명                            |
+| -------- | --------------------------------- | --------------------------------- |
+| `POST`   | `/trade-journals`                 | 매매일지 작성                     |
+| `GET`    | `/trade-journals`                 | 내 매매일지 목록 (최신순)          |
+| `GET`    | `/trade-journals/pending-review`  | 대시보드용 — 복기 미작성 (오래된순) |
+| `GET`    | `/trade-journals/:id`             | 상세 조회                          |
+| `PATCH`  | `/trade-journals/:id`             | 수정 (부분 업데이트)                |
+| `DELETE` | `/trade-journals/:id`             | 삭제                                |
+
+> `pending-review`도 `terms/random`과 같은 이유로 `:id`보다 먼저
+> 선언되어 있습니다 (라우트 매칭 순서 문제).
+
+### 요청/응답 예시
+
+```json
+// POST /trade-journals 요청
+{
+  "title": "삼성전자 단기 매매",
+  "stockName": "삼성전자",
+  "rationale": "<p>실적 발표를 앞두고 반도체 업황 개선 기대감으로 매수</p>",
+  "review": null
+}
+```
+
+```json
+// 201 응답 — userId는 응답에서 제외 (기존 패턴과 동일)
+{
+  "id": "da6f4b26-15c4-4ffc-9c71-de911f040340",
+  "title": "삼성전자 단기 매매",
+  "stockName": "삼성전자",
+  "rationale": "<p>실적 발표를 앞두고 반도체 업황 개선 기대감으로 매수</p>",
+  "review": null,
+  "createdAt": "2026-09-07T15:35:31.011Z",
+  "updatedAt": "2026-09-07T15:35:31.011Z"
+}
+```
+
+| 필드       | 규칙                                             |
+| ---------- | -------------------------------------------------- |
+| title      | 1~100자                                            |
+| stockName  | 1~100자                                            |
+| rationale  | 필수. 에디터가 비어 있는 상태(`<p></p>`)로는 등록 불가 |
+| review     | 선택. 비어 있으면 `null`로 저장됨                     |
+
+### trade_journals 테이블
+
+| 컬럼         | 타입          | 설명                                    |
+| ------------ | ------------- | ------------------------------------------ |
+| id           | uuid (PK)     | 매매일지 식별자                             |
+| user_id      | uuid (FK)     | 소유자 (`users.id`, `ON DELETE CASCADE`)     |
+| title        | varchar(100)  | 제목                                       |
+| stock_name   | varchar(100)  | 매매종목                                   |
+| rationale    | text          | 매매근거 (에디터 HTML, 서버에서 sanitize)     |
+| review       | text, nullable | 매매복기 — 미작성 시 `NULL`                  |
+| created_at   | timestamp     | 작성 시각                                   |
+| updated_at   | timestamp     | 마지막 수정 시각                             |
+
+마이그레이션: [`1788827644694-CreateTradeJournalsTable.ts`](../antnote-backend/src/database/migrations/1788827644694-CreateTradeJournalsTable.ts)
+
+> 마이그레이션 생성 시 TypeORM이 `terms` 테이블의 `FK_terms_user_id`도
+> 함께 지우자고 제안했습니다 — `Term` 엔티티에 `@ManyToOne` 관계가 없어서
+> (의도적 설계, terms 섹션 참고) 생성기가 그 제약을 "엔티티에 없는
+> 것"으로 오인한 것입니다. 실제 변경이 아니므로 마이그레이션 파일에서
+> 제거하고 주석으로 남겨뒀습니다 — 이 패턴을 쓸 때마다 반복될 수 있는
+> 사항입니다.
+
+### XSS 방어: 서버가 유일한 신뢰 경계
+
+프론트엔드 에디터가 만들어내는 HTML은 스스로 안전한 태그만 생성하지만,
+API는 "요청이 항상 에디터를 거쳐 온다"고 가정하지 않습니다 — 세션 쿠키만
+있으면 누구나 API에 직접 임의의 HTML을 담아 요청할 수 있기 때문입니다.
+그래서 `rationale`/`review`는 저장 전에 항상 서버에서
+[`sanitize-html`](https://www.npmjs.com/package/sanitize-html)로
+허용된 태그(`p`, `strong`, `em`, `s`, `u`, `code`, `a`, `ul`, `ol`, `li`,
+`blockquote`, `br`, `h1~h3`)만 남기고 나머지를 제거합니다. 이 허용 목록은
+프론트엔드 에디터의 스키마(StarterKit에서 `codeBlock`/`horizontalRule`
+비활성화)와 의도적으로 동일하게 맞춰뒀습니다.
+
+```
+저장: dto.rationale → sanitizeRichText() → DB
+조회: DB → 그대로 응답 → 프론트 RichTextView가 dangerouslySetInnerHTML로 렌더
+```
+
+`dangerouslySetInnerHTML`이 안전한 이유는 프론트엔드가 신뢰해서가 아니라,
+서버가 저장 시점에 이미 허용 목록을 강제했기 때문입니다 — 신뢰 경계가
+클라이언트가 아니라 서버에 있습니다.
+
+### 구현 포인트
+
+| 포인트                                              | 설명 |
+| ------------------------------------------------------ | ---- |
+| `review`는 빈 문자열이 아니라 `null`로 정규화              | Tiptap은 빈 에디터도 `<p></p>`를 반환합니다. 이걸 그대로 저장하면 "복기 작성 여부"를 문자열 비교로 판단해야 해서 깨지기 쉽습니다 — sanitize 후 빈 내용이면 `null`로 바꿔서, `WHERE review IS NULL`이라는 명확한 쿼리로 판단합니다. |
+| `rationale`은 길이 검증만으로 불충분              | `@Length(1, 20000)`은 `<p></p>`(7자)도 통과시킵니다. 필수 필드가 실질적으로 비어 있는 채로 저장되는 걸 막기 위해, sanitize 후 내용이 비어 있으면 `BadRequestException`을 던지는 검증을 서비스에 별도로 추가했습니다. |
+| 대시보드 위젯은 오래된 순             | "복기가 필요한 매매일지"는 오래 방치된 것부터 보여줘야 실제로 복기를 유도하는 의미가 있어서, `findAll`(최신순)과 반대로 `ORDER BY created_at ASC`를 씁니다. |
+| `TradeJournal`도 `@ManyToOne` 관계 없음                | `Term`과 같은 이유 — 서비스가 사용자 엔티티를 조인할 필요가 없어, FK는 마이그레이션에서만 겁니다. |
+
+### 관련 파일
+
+**백엔드**
+```
+src/modules/trade-journals/
+  trade-journals.module.ts
+  trade-journals.controller.ts    # POST/GET/PATCH/DELETE, /pending-review
+  trade-journals.service.ts        # 소유권 검증, 정규화/검증, CRUD
+  trade-journals.service.spec.ts    # 유닛 테스트
+  entities/trade-journal.entity.ts
+  dto/create-trade-journal.dto.ts
+  dto/update-trade-journal.dto.ts
+  dto/trade-journal-response.dto.ts  # 응답 화이트리스트
+  dto/pending-review-query.dto.ts     # ?limit= 검증 (1~20, 기본 5)
+
+src/common/sanitize/
+  sanitize-rich-text.ts             # sanitizeRichText, normalizeOptionalRichText, isEmptyRichText
+  sanitize-rich-text.spec.ts
+
+src/database/migrations/
+  1788827644694-CreateTradeJournalsTable.ts
+```
+
+**프론트엔드**
+```
+src/app/journal/
+  page.tsx                          # 목록 (복기 완료/필요 배지)
+  new/page.tsx                       # 작성
+  [id]/page.tsx                       # 상세 + 인라인 수정 + 삭제
+
+src/features/journal/
+  api.ts
+  hooks/
+    useJournalsQuery.ts
+    useJournalQuery.ts
+    usePendingReviewQuery.ts          # 대시보드 위젯용
+    useCreateJournalMutation.ts
+    useUpdateJournalMutation.ts
+    useDeleteJournalMutation.ts
+  components/
+    JournalForm.tsx                    # 등록/수정 공용 폼
+    PendingReviewList.tsx               # 대시보드 위젯
+
+src/components/
+  RichTextEditor.tsx                  # Tiptap 에디터 (재사용 가능)
+  EditorToolbar.tsx                    # 굵게/기울임/목록 등
+  RichTextView.tsx                     # 저장된 HTML 읽기 전용 렌더링
 ```
 
 ### 다음 단계 (미구현)

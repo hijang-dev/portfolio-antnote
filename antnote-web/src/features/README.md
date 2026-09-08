@@ -7,14 +7,15 @@ features/
   auth/          # 회원가입/로그인/로그아웃/현재 사용자 조회, 로그인 가드 훅 (구현됨)
   dashboard/     # 메인 대시보드 — 랜덤 용어 카드 (구현됨)
   terms/         # 용어 등록/수정/삭제 (구현됨)
+  journal/       # 매매일지 등록/수정/삭제 (구현됨)
   stocks/        # 종목 검색, 상세, 시세 차트
   watchlist/     # 관심종목 화면
   portfolio/     # 보유 종목, 손익 대시보드
   education/     # 관리자가 작성하는 공용 가이드 콘텐츠
 ```
 
-`auth`, `dashboard`, `terms`가 구현되었습니다. 화면별 설계 근거는
-[`docs/FEATURES.md`](../../../docs/FEATURES.md)를 참고하세요.
+`auth`, `dashboard`, `terms`, `journal`이 구현되었습니다. 화면별 설계
+근거는 [`docs/FEATURES.md`](../../../docs/FEATURES.md)를 참고하세요.
 
 각 기능 폴더는 보통 다음과 같이 구성됩니다.
 

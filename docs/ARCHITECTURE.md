@@ -35,7 +35,7 @@ config/      → 환경변수 로딩 + 부팅 시 즉시 검증(fail-fast)
 database/    → TypeOrmModule 연결 설정, CLI용 DataSource, 마이그레이션
 health/      → GET /health (ALB/ECS/로컬 docker용 DB 연결 확인)
 common/      → 공통 관심사 (전역 예외 필터 등)
-modules/     → 기능 모듈 (auth, users, terms 구현됨 / stocks, watchlist, portfolio 등 예정)
+modules/     → 기능 모듈 (auth, users, terms, trade-journals 구현됨 / stocks, watchlist, portfolio 등 예정)
 ```
 
 각 기능 모듈은 컨트롤러/서비스/엔티티/DTO를 모두 갖춘 독립적인 단위로
@@ -70,3 +70,4 @@ DB 연결 상태까지 확인합니다).
 | Zustand + TanStack Query 역할 분리        | 서버 데이터와 UI 상태가 하나의 store에서 충돌하는 것을 방지        |
 | Express 대신 NestJS 선택                  | 기본 내장된 DI/모듈 구조 덕분에 기능 모듈이 늘어나도 확장이 용이   |
 | JWT 대신 세션(Redis) 인증                  | 로그아웃 시 즉시 무효화 가능, 클라이언트에 사용자 정보가 노출되지 않음 |
+| 리치 텍스트는 서버에서 sanitize            | 에디터가 안전한 HTML만 만들어도, API를 직접 호출하면 우회 가능 — 신뢰 경계는 클라이언트가 아니라 서버 (매매일지 기능 참고) |

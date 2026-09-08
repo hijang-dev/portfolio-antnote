@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { TermsModule } from './modules/terms/terms.module.js';
+import { TradeJournalsModule } from './modules/trade-journals/trade-journals.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
@@ -22,6 +23,7 @@ import { UsersModule } from './modules/users/users.module.js';
     UsersModule,
     AuthModule,
     TermsModule,
+    TradeJournalsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

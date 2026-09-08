@@ -3,9 +3,9 @@
 주식 투자 초보자를 위한 서비스 **antnote**의 API 서버입니다. NestJS, TypeORM,
 PostgreSQL, Redis(세션)로 구성했습니다.
 
-> 기본 세팅에 이어 회원가입/로그인, 주식 용어 사전 기능까지 구현했습니다.
-> 나머지 기능 모듈(stocks, watchlist, portfolio 등)은 `src/modules/`
-> 아래에 하나씩 추가될 예정입니다. API 명세와 설계 근거는
+> 기본 세팅에 이어 회원가입/로그인, 주식 용어 사전, 매매일지 기능까지
+> 구현했습니다. 나머지 기능 모듈(stocks, watchlist, portfolio 등)은
+> `src/modules/` 아래에 하나씩 추가될 예정입니다. API 명세와 설계 근거는
 > [`../docs/FEATURES.md`](../docs/FEATURES.md)를 참고하세요.
 
 ## 기술 스택
@@ -19,6 +19,7 @@ PostgreSQL, Redis(세션)로 구성했습니다.
 | 유효성 검증    | class-validator / class-transformer    |
 | 비밀번호 해싱  | bcrypt                                  |
 | 인증          | 세션 (`express-session` + Redis, `connect-redis`) |
+| 리치 텍스트 보안 | `sanitize-html` (서버 측 HTML 허용 목록)  |
 | API 문서화     | Swagger (OpenAPI) — `@nestjs/swagger`  |
 | 테스트         | Vitest                                  |
 
@@ -40,10 +41,12 @@ src/
     decorators/              # @CurrentUserId() 등 재사용 데코레이터
     session/                 # Redis 세션 스토어 설정 (express-session)
     types/                   # express-session 타입 확장
+    sanitize/                # 리치 텍스트 HTML 허용 목록 (sanitize-html)
   modules/
     auth/                    # 회원가입, 로그인/로그아웃, /auth/me (구현됨)
     users/                   # 사용자 조회/생성 (구현됨)
     terms/                   # 주식 용어 사전 CRUD (구현됨)
+    trade-journals/          # 매매일지 CRUD (구현됨)
                               # 나머지 기능 모듈은 점진적으로 추가 예정
 ```
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useRequireAuth } from '@/features/auth/hooks/useRequireAuth';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogoutMutation';
 import { RandomTermCards } from '@/features/dashboard/components/RandomTermCards';
+import { PendingReviewList } from '@/features/journal/components/PendingReviewList';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -34,6 +35,9 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/journal" className="text-xs underline">
+              매매일지
+            </Link>
             <Link href="/terms" className="text-xs underline">
               용어 관리
             </Link>
@@ -48,6 +52,7 @@ export default function DashboardPage() {
         </div>
 
         <RandomTermCards />
+        <PendingReviewList />
       </main>
     </div>
   );
